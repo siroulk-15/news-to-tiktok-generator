@@ -21,8 +21,12 @@ logger = setup_logger(__name__)
 
 
 def get_default_rss_sources():
-    """Get list of default RSS news sources."""
+    """Get default RSS sources, prioritizing French-language coverage."""
     return [
+        RSSNewsSource("France 24", "https://www.france24.com/fr/rss", country="FR", language="fr"),
+        RSSNewsSource("RFI", "https://www.rfi.fr/fr/rss", country="FR", language="fr"),
+        RSSNewsSource("Franceinfo", "https://www.francetvinfo.fr/titres.rss", country="FR", language="fr"),
+        RSSNewsSource("Le Monde", "https://www.lemonde.fr/rss/tag/actualites.xml", country="FR", language="fr"),
         RSSNewsSource("BBC News", "http://feeds.bbc.co.uk/news/rss.xml", country="GB"),
         RSSNewsSource("CNN", "http://rss.cnn.com/rss/cnn_topstories.rss", country="US"),
         RSSNewsSource("Reuters", "https://www.reuters.com/rssFeed/worldNews", country="US"),
