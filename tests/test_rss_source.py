@@ -7,6 +7,7 @@ import pytest
 
 from app.sources.rss import RSSNewsSource
 from app.models import NewsArticle
+from app.cli import get_default_rss_sources
 
 
 class TestRSSNewsSource:
@@ -25,6 +26,19 @@ class TestRSSNewsSource:
         assert source.country == "GB"
         assert source.language == "en"
         assert source.source_domain == "feeds.bbc.co.uk"
+
+    def test_default_sources_prioritize_french_feeds(self):
+        sources = get_default_rss_sources()
+
+        assert [source.name for source in sources[:4]] == [
+            "France 24",
+            "RFI",
+            "Franceinfo",
+            "Le Monde",
+        ]
+        assert all(source.language == "fr" for source in sources[:4])
+        assert all(source.country == "FR" for source in sources[:4])
+        assert len(sources) == 7
     
     def test_extract_domain(self):
         """Test domain extraction from URL."""

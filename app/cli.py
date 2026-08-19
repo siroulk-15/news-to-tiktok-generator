@@ -12,6 +12,8 @@ from app.services import (
     StorySelector,
     ScriptGenerator,
     EditorialWorkflow,
+    ApprovedContentExporter,
+    VideoRenderer,
 )
 from app.sources import RSSNewsSource
 from app.logger import setup_logger
@@ -21,8 +23,12 @@ logger = setup_logger(__name__)
 
 
 def get_default_rss_sources():
-    """Get list of default RSS news sources."""
+    """Get default RSS sources, prioritizing French-language coverage."""
     return [
+        RSSNewsSource("France 24", "https://www.france24.com/fr/rss", country="FR", language="fr"),
+        RSSNewsSource("RFI", "https://www.rfi.fr/fr/rss", country="FR", language="fr"),
+        RSSNewsSource("Franceinfo", "https://www.francetvinfo.fr/titres.rss", country="FR", language="fr"),
+        RSSNewsSource("Le Monde", "https://www.lemonde.fr/rss/tag/actualites.xml", country="FR", language="fr"),
         RSSNewsSource("BBC News", "http://feeds.bbc.co.uk/news/rss.xml", country="GB"),
         RSSNewsSource("CNN", "http://rss.cnn.com/rss/cnn_topstories.rss", country="US"),
         RSSNewsSource("Reuters", "https://www.reuters.com/rssFeed/worldNews", country="US"),
@@ -242,6 +248,42 @@ def reject(story_id):
         click.echo(f"\n✓ Story rejected: {story_id}\n")
     except ValueError as error:
         raise click.ClickException(str(error)) from error
+    finally:
+        close_db(db)
+
+
+@cli.command(name="export-approved")
+@click.option("--output", default="exports", show_default=True, type=click.Path(file_okay=False, dir_okay=True))
+def export_approved(output):
+    """Export approved scripts for manual video production."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = ApprovedContentExporter(db).export(output)
+        click.echo(
+            f"\n✓ Exported {stats['stories_exported']} approved story(ies) to "
+            f"{stats['output_dir']}\n"
+        )
+    finally:
+        close_db(db)
+
+
+@cli.command(name="render-approved")
+@click.option("--output", default="videos", show_default=True, type=click.Path(file_okay=False, dir_okay=True))
+@click.option("--limit", default=None, type=click.IntRange(min=1))
+@click.option("--story-id", default=None, help="Render one approved story by ID")
+def render_approved(output, limit, story_id):
+    """Render approved scripts as silent vertical MP4 videos."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = VideoRenderer(db).render_approved(output, limit=limit, story_id=story_id)
+        click.echo(
+            f"\n✓ Rendered {stats['videos_rendered']} video(s) to "
+            f"{stats['output_dir']}\n"
+        )
     finally:
         close_db(db)
 

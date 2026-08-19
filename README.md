@@ -5,7 +5,7 @@
 ## 📋 Overview
 
 NTG is a Python application that:
-1. **Collects** news from RSS feeds (BBC, CNN, Reuters)
+1. **Collects** news from RSS feeds (France 24, RFI, Franceinfo, Le Monde, BBC, CNN, Reuters)
 2. **Normalizes** articles into a standard format
 3. **Deduplicates** articles to find the same story from different sources
 4. **Creates stories** by grouping related articles
@@ -15,6 +15,7 @@ NTG is a Python application that:
 
 ✅ **Included:**
 - RSS feed collection from multiple sources
+- French-language RSS sources prioritized by default
 - Article normalization with Pydantic models
 - SQLite database with proper schema
 - Deduplication by content hash and title similarity
@@ -144,6 +145,14 @@ python -m app scripts --limit 10
 python -m app review --limit 10
 python -m app approve STORY_ID
 python -m app reject STORY_ID
+
+# Exporter uniquement les contenus approuvés pour un montage vidéo manuel
+python -m app export-approved --output exports
+
+# Générer des vidéos verticales silencieuses à partir des contenus approuvés
+python -m app render-approved --output videos
+# Pour cibler une story précise
+python -m app render-approved --output videos --story-id STORY_ID
 
 # Open the local graphical review interface and inspect each draft
 python -m app web

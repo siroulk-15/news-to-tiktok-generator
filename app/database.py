@@ -1,7 +1,7 @@
 """Database models and session management using SQLAlchemy."""
 
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, Float, DateTime, Integer, Text, Index
+from sqlalchemy import create_engine, Column, String, Float, DateTime, Integer, Text, Index, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -97,6 +97,7 @@ class ScriptDraftDB(Base):
     context = Column(Text, nullable=False)
     call_to_action = Column(Text, nullable=False)
     draft_text = Column(Text, nullable=False)
+    language = Column(String(10), nullable=True)
     status = Column(String, nullable=False, default="DRAFT")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -110,7 +111,22 @@ def init_db():
     """Initialize database tables."""
     logger.info("Initializing database...")
     Base.metadata.create_all(bind=engine)
+    if settings.database_url.startswith("sqlite"):
+        _ensure_sqlite_columns()
     logger.info("Database initialized successfully")
+
+
+def _ensure_sqlite_columns() -> None:
+    """Apply additive SQLite changes for existing MVP databases."""
+    columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("script_drafts")
+    }
+    if "language" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE script_drafts ADD COLUMN language VARCHAR(10)"
+            ))
 
 
 def get_db() -> Session:
