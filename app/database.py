@@ -86,6 +86,26 @@ class NewsSourceDB(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class ScriptDraftDB(Base):
+    """Database model for generated, non-published script drafts."""
+
+    __tablename__ = "script_drafts"
+
+    id = Column(String, primary_key=True)
+    story_id = Column(String, nullable=False, unique=True)
+    hook = Column(Text, nullable=False)
+    context = Column(Text, nullable=False)
+    call_to_action = Column(Text, nullable=False)
+    draft_text = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="DRAFT")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_script_draft_status", "status"),
+    )
+
+
 def init_db():
     """Initialize database tables."""
     logger.info("Initializing database...")

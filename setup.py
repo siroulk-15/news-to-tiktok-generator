@@ -22,6 +22,8 @@ setup(
         "requests==2.31.0",
         "python-dotenv==1.0.0",
         "click==8.1.7",
+        "fastapi==0.115.6",
+        "uvicorn==0.34.0",
     ],
     extras_require={
         "dev": [
