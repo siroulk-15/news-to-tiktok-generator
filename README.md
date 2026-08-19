@@ -146,6 +146,9 @@ python -m app review --limit 10
 python -m app approve STORY_ID
 python -m app reject STORY_ID
 
+# Exporter uniquement les contenus approuvés pour un montage vidéo manuel
+python -m app export-approved --output exports
+
 # Open the local graphical review interface and inspect each draft
 python -m app web
 # Then visit http://127.0.0.1:8000

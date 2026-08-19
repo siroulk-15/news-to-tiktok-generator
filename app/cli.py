@@ -12,6 +12,7 @@ from app.services import (
     StorySelector,
     ScriptGenerator,
     EditorialWorkflow,
+    ApprovedContentExporter,
 )
 from app.sources import RSSNewsSource
 from app.logger import setup_logger
@@ -246,6 +247,23 @@ def reject(story_id):
         click.echo(f"\n✓ Story rejected: {story_id}\n")
     except ValueError as error:
         raise click.ClickException(str(error)) from error
+    finally:
+        close_db(db)
+
+
+@cli.command(name="export-approved")
+@click.option("--output", default="exports", show_default=True, type=click.Path(file_okay=False, dir_okay=True))
+def export_approved(output):
+    """Export approved scripts for manual video production."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = ApprovedContentExporter(db).export(output)
+        click.echo(
+            f"\n✓ Exported {stats['stories_exported']} approved story(ies) to "
+            f"{stats['output_dir']}\n"
+        )
     finally:
         close_db(db)
 
