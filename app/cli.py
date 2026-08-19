@@ -13,6 +13,7 @@ from app.services import (
     ScriptGenerator,
     EditorialWorkflow,
     ApprovedContentExporter,
+    VideoRenderer,
 )
 from app.sources import RSSNewsSource
 from app.logger import setup_logger
@@ -262,6 +263,24 @@ def export_approved(output):
         stats = ApprovedContentExporter(db).export(output)
         click.echo(
             f"\n✓ Exported {stats['stories_exported']} approved story(ies) to "
+            f"{stats['output_dir']}\n"
+        )
+    finally:
+        close_db(db)
+
+
+@cli.command(name="render-approved")
+@click.option("--output", default="videos", show_default=True, type=click.Path(file_okay=False, dir_okay=True))
+@click.option("--limit", default=None, type=click.IntRange(min=1))
+def render_approved(output, limit):
+    """Render approved scripts as silent vertical MP4 videos."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = VideoRenderer(db).render_approved(output, limit=limit)
+        click.echo(
+            f"\n✓ Rendered {stats['videos_rendered']} video(s) to "
             f"{stats['output_dir']}\n"
         )
     finally:

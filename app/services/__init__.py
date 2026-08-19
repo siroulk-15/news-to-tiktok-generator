@@ -7,6 +7,7 @@ from app.services.selector import StorySelector
 from app.services.script_generator import ScriptGenerator
 from app.services.workflow import EditorialWorkflow
 from app.services.exporter import ApprovedContentExporter
+from app.services.video_renderer import VideoRenderer
 
 __all__ = [
 	"NewsCollector",
@@ -16,4 +17,5 @@ __all__ = [
 	"ScriptGenerator",
 	"EditorialWorkflow",
 	"ApprovedContentExporter",
+	"VideoRenderer",
 ]

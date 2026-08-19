@@ -149,6 +149,9 @@ python -m app reject STORY_ID
 # Exporter uniquement les contenus approuvés pour un montage vidéo manuel
 python -m app export-approved --output exports
 
+# Générer des vidéos verticales silencieuses à partir des contenus approuvés
+python -m app render-approved --output videos
+
 # Open the local graphical review interface and inspect each draft
 python -m app web
 # Then visit http://127.0.0.1:8000

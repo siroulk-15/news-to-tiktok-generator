@@ -24,6 +24,8 @@ setup(
         "click==8.1.7",
         "fastapi==0.115.6",
         "uvicorn==0.34.0",
+        "pillow==11.1.0",
+        "imageio-ffmpeg==0.6.0",
     ],
     extras_require={
         "dev": [
