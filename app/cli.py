@@ -272,13 +272,14 @@ def export_approved(output):
 @cli.command(name="render-approved")
 @click.option("--output", default="videos", show_default=True, type=click.Path(file_okay=False, dir_okay=True))
 @click.option("--limit", default=None, type=click.IntRange(min=1))
-def render_approved(output, limit):
+@click.option("--story-id", default=None, help="Render one approved story by ID")
+def render_approved(output, limit, story_id):
     """Render approved scripts as silent vertical MP4 videos."""
     init_db()
     db = get_db()
 
     try:
-        stats = VideoRenderer(db).render_approved(output, limit=limit)
+        stats = VideoRenderer(db).render_approved(output, limit=limit, story_id=story_id)
         click.echo(
             f"\n✓ Rendered {stats['videos_rendered']} video(s) to "
             f"{stats['output_dir']}\n"

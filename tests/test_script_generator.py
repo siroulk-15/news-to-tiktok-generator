@@ -12,9 +12,10 @@ def test_generate_uses_only_cleaned_story_content():
         "A report\nwith limited details.",
     )
 
-    assert draft["hook"] == "Strange event"
+    assert draft["hook"] == "Here is what matters: Strange event"
     assert draft["context"] == "A report with limited details."
-    assert "Strange event" in draft["draft_text"]
+    assert draft["language"] == "en"
+    assert "Here is what matters" in draft["draft_text"]
     assert "A report with limited details." in draft["draft_text"]
 
 
@@ -45,3 +46,14 @@ def test_generate_for_selected_persists_and_is_idempotent(db_session):
     draft = db_session.query(ScriptDraftDB).one()
     assert draft.status == "DRAFT"
     assert draft.story_id == story.id
+
+
+def test_generate_keeps_french_content_in_french():
+    draft = ScriptGenerator.generate(
+        "Une nouvelle importante",
+        "Le gouvernement annonce cette mesure après une réunion.",
+    )
+
+    assert draft["language"] == "fr"
+    assert draft["hook"].startswith("Voici ce qu'il faut retenir")
+    assert "Nous suivrons" in draft["call_to_action"]

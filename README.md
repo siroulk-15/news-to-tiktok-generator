@@ -151,6 +151,8 @@ python -m app export-approved --output exports
 
 # Générer des vidéos verticales silencieuses à partir des contenus approuvés
 python -m app render-approved --output videos
+# Pour cibler une story précise
+python -m app render-approved --output videos --story-id STORY_ID
 
 # Open the local graphical review interface and inspect each draft
 python -m app web

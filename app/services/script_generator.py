@@ -19,19 +19,28 @@ class ScriptGenerator:
         self.db = db
 
     @staticmethod
-    def generate(title: str, summary: str) -> dict[str, str]:
-        """Build a short draft using only the provided title and summary."""
+    def generate(title: str, summary: str, language: str | None = None) -> dict[str, str]:
+        """Build a structured draft in the detected or requested language."""
         clean_title = ScriptGenerator._clean(title, 180)
         clean_summary = ScriptGenerator._clean(summary, 500)
-        hook = clean_title
-        context = clean_summary or "Les informations disponibles sont encore limitées."
-        call_to_action = "Nous suivrons cette affaire au fil des prochaines informations."
+        detected_language = ScriptGenerator.detect_language(
+            f"{clean_title} {clean_summary}", language
+        )
+        if detected_language == "fr":
+            hook = f"Voici ce qu'il faut retenir : {clean_title}"
+            context = clean_summary or "Les informations disponibles sont encore limitées."
+            call_to_action = "Nous suivrons cette affaire au fil des prochaines informations."
+        else:
+            hook = f"Here is what matters: {clean_title}"
+            context = clean_summary or "The available information is still limited."
+            call_to_action = "We will follow this story as more information becomes available."
 
         return {
             "hook": hook,
             "context": context,
             "call_to_action": call_to_action,
             "draft_text": f"{hook}\n\n{context}\n\n{call_to_action}",
+            "language": detected_language,
         }
 
     def generate_for_selected(self, limit: int | None = None) -> dict:
@@ -69,6 +78,22 @@ class ScriptGenerator:
             "drafts_created": created,
             "drafts_updated": updated,
         }
+
+    @staticmethod
+    def detect_language(text: str, language: str | None = None) -> str:
+        """Detect French versus English using explicit metadata and common words."""
+        if language and language.lower().startswith("fr"):
+            return "fr"
+        if language and language.lower().startswith("en"):
+            return "en"
+        normalized = text.lower()
+        french_markers = (
+            " le ", " la ", " les ", " des ", " une ", " dans ",
+            " avec ", " cette ", " pour ", " après ", " est ",
+            "é", "à", "è", "ç",
+        )
+        french_score = sum(marker in f" {normalized} " for marker in french_markers)
+        return "fr" if french_score >= 2 else "en"
 
     @staticmethod
     def _clean(value: str, max_length: int) -> str:

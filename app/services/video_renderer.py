@@ -1,6 +1,8 @@
 """Render approved script drafts as simple vertical MP4 videos."""
 
 import subprocess
+import hashlib
+import re
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -19,16 +21,23 @@ class VideoRenderer:
     WIDTH = 1080
     HEIGHT = 1920
     FPS = 30
-    SLIDE_SECONDS = 2
+    SLIDE_SECONDS = 20
 
     def __init__(self, db: Session):
         self.db = db
 
-    def render_approved(self, output_dir: str | Path, limit: int | None = None) -> dict:
+    def render_approved(
+        self,
+        output_dir: str | Path,
+        limit: int | None = None,
+        story_id: str | None = None,
+    ) -> dict:
         """Render only stories and drafts that are both approved."""
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
         query = self.db.query(StoryDB).filter(StoryDB.status == "APPROVED")
+        if story_id is not None:
+            query = query.filter(StoryDB.id == story_id)
         if limit is not None:
             query = query.limit(limit)
 
@@ -37,6 +46,7 @@ class VideoRenderer:
             draft = self.db.query(ScriptDraftDB).filter(
                 ScriptDraftDB.story_id == story.id,
                 ScriptDraftDB.status == "APPROVED",
+                ScriptDraftDB.language.isnot(None),
             ).first()
             if draft is None:
                 continue
@@ -69,7 +79,9 @@ class VideoRenderer:
         try:
             slides = [draft.hook, draft.context, draft.call_to_action]
             for index, text in enumerate(slides):
-                frame = self._make_slide(text, index, width, height)
+                frame = self._make_slide(
+                    text, index, width, height, draft.language or "en", draft.hook
+                )
                 for _ in range(max(1, fps * slide_seconds)):
                     process.stdin.write(frame.tobytes())
             process.stdin.close()
@@ -84,11 +96,30 @@ class VideoRenderer:
             raise
 
     @staticmethod
-    def _make_slide(text: str, index: int, width: int, height: int) -> Image.Image:
-        colors = [(22, 34, 31), (212, 93, 56), (245, 241, 232)]
+    def _make_slide(
+        text: str,
+        index: int,
+        width: int,
+        height: int,
+        language: str,
+        topic: str,
+    ) -> Image.Image:
+        seed = int(hashlib.sha256(topic.encode()).hexdigest()[:8], 16)
+        palettes = [
+            [(22, 34, 31), (212, 93, 56), (245, 241, 232)],
+            [(25, 47, 76), (235, 170, 66), (238, 244, 247)],
+            [(58, 35, 73), (229, 103, 87), (249, 239, 221)],
+        ]
+        colors = palettes[seed % len(palettes)]
         foreground = (255, 253, 248) if index < 2 else (23, 34, 31)
         image = Image.new("RGB", (width, height), colors[index])
         draw = ImageDraw.Draw(image)
+        accent = colors[(index + 1) % len(colors)]
+        draw.ellipse((width * 0.64, height * 0.08, width * 0.98, height * 0.28), fill=accent)
+        draw.rectangle((width * 0.06, height * 0.78, width * 0.94, height * 0.79), fill=accent)
+        label = "ACTUALITÉ" if language == "fr" else "NEWS"
+        label_font = VideoRenderer._font(max(18, width // 32), bold=True)
+        draw.text((width * 0.06, height * 0.08), label, fill=foreground, font=label_font)
         font = VideoRenderer._font(max(30, width // 15), bold=index == 0)
         lines = VideoRenderer._wrap(text, 24 if width >= 700 else 16)
         line_height = font.size + max(12, width // 80)
@@ -97,6 +128,14 @@ class VideoRenderer:
             box = draw.textbbox((0, 0), line, font=font)
             x = (width - (box[2] - box[0])) // 2
             draw.text((x, top + line_index * line_height), line, fill=foreground, font=font)
+        keywords = VideoRenderer._keywords(topic)
+        keyword_font = VideoRenderer._font(max(16, width // 42), bold=False)
+        draw.text(
+            (width * 0.06, height * 0.82),
+            "  ·  ".join(keywords),
+            fill=foreground,
+            font=keyword_font,
+        )
         return image
 
     @staticmethod
@@ -126,3 +165,9 @@ class VideoRenderer:
         if current:
             lines.append(current)
         return lines or [""]
+
+    @staticmethod
+    def _keywords(text: str) -> list[str]:
+        words = re.findall(r"[A-Za-zÀ-ÿ]{4,}", text.lower())
+        unique = list(dict.fromkeys(words))
+        return [word[:18] for word in unique[:3]] or ["actualité"]

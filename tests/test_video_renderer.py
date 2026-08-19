@@ -51,3 +51,28 @@ def test_render_draft_creates_mp4(db_session, tmp_path):
 
     assert output.exists()
     assert output.stat().st_size > 1000
+
+
+def test_render_approved_skips_legacy_drafts_without_language(db_session, tmp_path):
+    story = StoryDB(
+        id="story-legacy",
+        title="Legacy story",
+        summary="Summary",
+        status="APPROVED",
+    )
+    draft = ScriptDraftDB(
+        id="draft-legacy",
+        story_id=story.id,
+        hook="Legacy hook",
+        context="Legacy context",
+        call_to_action="Ancienne conclusion",
+        draft_text="Legacy hook\nLegacy context\nAncienne conclusion",
+        status="APPROVED",
+        language=None,
+    )
+    db_session.add_all([story, draft])
+    db_session.commit()
+
+    stats = VideoRenderer(db_session).render_approved(tmp_path)
+
+    assert stats["videos_rendered"] == 0
