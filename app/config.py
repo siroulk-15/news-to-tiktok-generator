@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     news_scan_interval: int = 3600  # seconds
     
     # Scoring thresholds
-    min_confidence: float = 0.80
-    min_insolite_score: float = 0.65
+    # MVP accepts single-source stories; raise this after verification is added.
+    min_confidence: float = 0.50
+    # MVP keeps a broad shortlist; tighten this after richer topic signals exist.
+    min_insolite_score: float = 0.35
     
     # Logging
     log_level: str = "INFO"

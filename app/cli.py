@@ -5,7 +5,14 @@ import click
 from datetime import datetime
 
 from app.database import init_db, get_db, close_db, NewsArticleDB, StoryDB
-from app.services import NewsCollector, Deduplicator
+from app.services import (
+    NewsCollector,
+    Deduplicator,
+    StoryScorer,
+    StorySelector,
+    ScriptGenerator,
+    EditorialWorkflow,
+)
 from app.sources import RSSNewsSource
 from app.logger import setup_logger
 from app.config import settings
@@ -125,6 +132,131 @@ def deduplicate(hours):
 
 
 @cli.command()
+@click.option("--hours", default=None, type=click.IntRange(min=1), help="Score stories updated in the last N hours")
+def score(hours):
+    """Calculate and persist V0.2 story scores."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = StoryScorer(db).score_stories(hours=hours)
+        click.echo(f"\n✓ Scoring completed: {stats['stories_scored']} story(ies) scored\n")
+    finally:
+        close_db(db)
+
+
+@cli.command()
+@click.option("--min-insolite", default=None, type=click.FloatRange(0.0, 1.0))
+@click.option("--min-confidence", default=None, type=click.FloatRange(0.0, 1.0))
+@click.option("--limit", default=10, type=click.IntRange(min=1), help="Number of selected stories to display")
+def select(min_insolite, min_confidence, limit):
+    """Select and rank stories ready for downstream processing."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = StorySelector(db).select(
+            min_insolite_score=(
+                settings.min_insolite_score if min_insolite is None else min_insolite
+            ),
+            min_confidence=(
+                settings.min_confidence if min_confidence is None else min_confidence
+            ),
+        )
+        click.echo(
+            f"\n✓ Selection: {stats['stories_selected']} selected, "
+            f"{stats['stories_filtered']} filtered\n"
+        )
+        for story in stats["selected_stories"][:limit]:
+            click.echo(
+                f"  {story.id} | {story.insolite_score:.2f} insolite | "
+                f"{story.confidence_score:.2f} confiance | {story.title}"
+            )
+        click.echo()
+    finally:
+        close_db(db)
+
+
+@cli.command(name="scripts")
+@click.option("--limit", default=10, type=click.IntRange(min=1), help="Number of selected stories to process")
+def scripts(limit):
+    """Generate safe draft scripts for selected stories."""
+    init_db()
+    db = get_db()
+
+    try:
+        stats = ScriptGenerator(db).generate_for_selected(limit=limit)
+        click.echo(
+            f"\n✓ Scripts: {stats['drafts_created']} created, "
+            f"{stats['drafts_updated']} updated\n"
+        )
+    finally:
+        close_db(db)
+
+
+@cli.command()
+@click.option("--limit", default=10, type=click.IntRange(min=1))
+def review(limit):
+    """List selected stories waiting for editorial review."""
+    init_db()
+    db = get_db()
+
+    try:
+        queue = EditorialWorkflow(db).review_queue(limit=limit)
+        click.echo(f"\n✓ Review queue: {len(queue)} story(ies)\n")
+        for story in queue:
+            click.echo(
+                f"  {story.id} | {story.insolite_score or 0.0:.2f} insolite | "
+                f"{story.title}"
+            )
+        click.echo()
+    finally:
+        close_db(db)
+
+
+@cli.command()
+@click.argument("story_id")
+def approve(story_id):
+    """Approve a selected story and its draft."""
+    init_db()
+    db = get_db()
+
+    try:
+        EditorialWorkflow(db).approve(story_id)
+        click.echo(f"\n✓ Story approved: {story_id}\n")
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
+    finally:
+        close_db(db)
+
+
+@cli.command()
+@click.argument("story_id")
+def reject(story_id):
+    """Reject a selected story and its draft."""
+    init_db()
+    db = get_db()
+
+    try:
+        EditorialWorkflow(db).reject(story_id)
+        click.echo(f"\n✓ Story rejected: {story_id}\n")
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
+    finally:
+        close_db(db)
+
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8000, type=click.IntRange(1, 65535), show_default=True)
+def web(host, port):
+    """Start the local editorial web interface."""
+    import uvicorn
+
+    uvicorn.run("app.web:app", host=host, port=port, log_level="info")
+
+
+@cli.command()
 def collect():
     """
     Collect news from RSS sources.
@@ -155,7 +287,20 @@ def collect():
         deduplicator = Deduplicator(db)
         dedup_stats = deduplicator.deduplicate(hours=24)
         
-        # Step 3: Summary
+        # Step 3: Score stories for downstream selection
+        click.echo("\n⭐ Step 3: Scoring stories...")
+        scoring_stats = StoryScorer(db).score_stories(hours=24)
+
+        click.echo("\n🎯 Step 4: Selecting stories...")
+        selection_stats = StorySelector(db).select(
+            min_insolite_score=settings.min_insolite_score,
+            min_confidence=settings.min_confidence,
+        )
+
+        click.echo("\n📝 Step 5: Generating script drafts...")
+        script_stats = ScriptGenerator(db).generate_for_selected()
+
+        # Step 6: Summary
         total_articles = db.query(NewsArticleDB).count()
         total_stories = db.query(StoryDB).count()
         
@@ -170,6 +315,14 @@ def collect():
         click.echo(f"  - Stories created: {dedup_stats['stories_created']}")
         click.echo(f"  - Stories updated: {dedup_stats['stories_updated']}")
         click.echo(f"  - Duplicates found: {dedup_stats['duplicates_found']}")
+        click.echo(f"\n✓ Scoring:")
+        click.echo(f"  - Stories scored: {scoring_stats['stories_scored']}")
+        click.echo(f"\n✓ Selection:")
+        click.echo(f"  - Stories selected: {selection_stats['stories_selected']}")
+        click.echo(f"  - Stories filtered: {selection_stats['stories_filtered']}")
+        click.echo(f"\n✓ Script drafts:")
+        click.echo(f"  - Drafts created: {script_stats['drafts_created']}")
+        click.echo(f"  - Drafts updated: {script_stats['drafts_updated']}")
         click.echo(f"\n✓ Database:")
         click.echo(f"  - Total articles: {total_articles}")
         click.echo(f"  - Total stories:  {total_stories}")

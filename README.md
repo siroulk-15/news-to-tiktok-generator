@@ -61,7 +61,7 @@ cp .env.example .env
 ### Run Collection Pipeline
 
 ```bash
-# Collect news from all RSS sources, deduplicate, and create stories
+# Collect news, deduplicate, create stories, and calculate scores
 python -m app collect
 ```
 
@@ -81,6 +81,17 @@ Expected output:
   Stories created: 35
   Stories updated: 0
   Duplicates found: 9
+
+⭐ Step 3: Scoring stories...
+   Stories scored: 35
+
+🎯 Step 4: Selecting stories...
+   Stories selected: 8
+   Stories filtered: 27
+
+📝 Step 5: Generating script drafts...
+   Drafts created: 8
+   Drafts updated: 0
 
 ============================================================
 📊 PIPELINE SUMMARY
@@ -111,8 +122,32 @@ Expected output:
 # Initialize database (run once)
 python -m app init
 
-# Run complete pipeline: collect → deduplicate
+# Run complete pipeline: collect → deduplicate → score
 python -m app collect
+
+# Recalculate scores for all stories
+python -m app score
+
+# Recalculate scores for recently updated stories only
+python -m app score --hours 24
+
+# Select and rank stories using configured thresholds (0.35 insolite / 0.50 confidence by default)
+python -m app select --limit 10
+
+# Override thresholds for an exploratory shortlist
+python -m app select --min-insolite 0.70 --min-confidence 0.80 --limit 5
+
+# Generate safe draft scripts for selected stories
+python -m app scripts --limit 10
+
+# Review selected stories before any downstream automation
+python -m app review --limit 10
+python -m app approve STORY_ID
+python -m app reject STORY_ID
+
+# Open the local graphical review interface and inspect each draft
+python -m app web
+# Then visit http://127.0.0.1:8000
 
 # Show collection status
 python -m app status
